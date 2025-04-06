@@ -71,6 +71,143 @@
   </style>
 </head>
 <body>
-  <!-- Full HTML body omitted for brevity, but the full content goes here exactly as shown in the canvas -->
+  <h1>Retirement Calculator</h1>
+  <p>This tool helps you estimate whether you're on track for retirement. Enter your current age, savings, annual contributions, and other financial inputs. The calculator will project your savings growth, adjust for inflation, estimate your income from Social Security and other sources, and determine whether you’ll have enough for retirement—or if there’s a shortfall.</p>
+
+  <!-- User input fields -->
+  <div class="input-group"><label for="currentAge">Current Age:</label><input type="number" id="currentAge" value="30"></div>
+  <div class="input-group"><label for="retirementAge">Retirement Age:</label><input type="number" id="retirementAge" value="65"></div>
+  <div class="input-group"><label for="deathAge">Expected Death Age:</label><input type="number" id="deathAge" value="90"></div>
+  <div class="input-group"><label for="currentSavings">Current Savings ($):</label><input type="number" id="currentSavings" value="50000"></div>
+  <div class="input-group"><label for="annualContribution">Annual Contributions ($):</label><input type="number" id="annualContribution" value="5000"></div>
+  <div class="input-group"><label for="annualReturn">Expected Annual Return (%):</label><input type="number" step="0.01" id="annualReturn" value="9"></div>
+  <div class="input-group"><label for="inflationRate">Inflation Rate (%):</label><input type="number" step="0.01" id="inflationRate" value="3"></div>
+  <div class="input-group"><label for="monthlyTarget">Monthly Spending Target in Retirement ($):</label><input type="number" id="monthlyTarget" value="8000"></div>
+  <div class="input-group"><label for="ssAge">SS Start Age:</label><input type="number" id="ssAge" value="62"></div>
+  <div class="input-group"><label for="ssAmount">SS Monthly Amount ($):</label><input type="number" id="ssAmount" value="2500"></div>
+  <div class="input-group"><label for="otherIncome">Other Annual Income ($):</label><input type="number" id="otherIncome" value="0"></div>
+  <div class="input-group"><label for="otherGrowth">Other Income Growth (%):</label><input type="number" step="0.01" id="otherGrowth" value="0"></div>
+
+  <!-- Action buttons -->
+  <button id="calculateBtn">Calculate</button>
+  <button id="exportBtn">Export as PDF</button>
+
+  <!-- Display results and chart -->
+  <div class="result" id="output"></div>
+  <canvas id="chart"></canvas>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    const jsPDF = window.jspdf.jsPDF;
+
+    // Format numbers as USD currency with commas
+    function formatCurrency(value) {
+      return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    }
+
+    // Main calculation function
+    function calculate() {
+      // Collect input values
+      const ageNow = parseInt(document.getElementById('currentAge').value);
+      const retireAge = parseInt(document.getElementById('retirementAge').value);
+      const deathAge = parseInt(document.getElementById('deathAge').value);
+      const savings = parseFloat(document.getElementById('currentSavings').value);
+      const annualContrib = parseFloat(document.getElementById('annualContribution').value);
+      const returnRate = parseFloat(document.getElementById('annualReturn').value) / 100;
+      const inflation = parseFloat(document.getElementById('inflationRate').value) / 100;
+      const targetMonthly = parseFloat(document.getElementById('monthlyTarget').value);
+      const ssAge = parseInt(document.getElementById('ssAge').value);
+      const ssMonthly = parseFloat(document.getElementById('ssAmount').value);
+      const otherIncome = parseFloat(document.getElementById('otherIncome').value);
+      const otherGrowth = parseFloat(document.getElementById('otherGrowth').value) / 100;
+
+      // Timeframes
+      const yearsToRetire = retireAge - ageNow;
+      const yearsInRetirement = deathAge - retireAge;
+
+      // Calculate future savings
+      let fv = savings;
+      const savingsOverTime = [fv];
+      for (let i = 1; i <= yearsToRetire; i++) {
+        fv = fv * (1 + returnRate) + annualContrib;
+        savingsOverTime.push(fv);
+      }
+
+      // Inflation-adjusted income need
+      const futureMonthly = targetMonthly * Math.pow(1 + inflation, yearsToRetire);
+      const totalNeeded = futureMonthly * 12 * yearsInRetirement;
+
+      // Social Security and other income projections
+      const ssYears = Math.max(0, deathAge - ssAge);
+      const otherYears = yearsInRetirement;
+      const totalSS = ssMonthly * 12 * ssYears;
+
+      let totalOther = 0;
+      let income = otherIncome;
+      for (let i = 0; i < otherYears; i++) {
+        totalOther += income;
+        income *= (1 + otherGrowth);
+      }
+
+      const shortfall = totalNeeded - fv - totalSS - totalOther;
+
+      // Show result summary
+      document.getElementById('output').innerHTML = `
+        <p><strong>Future Savings at Retirement:</strong> ${formatCurrency(fv)}</p>
+        <p><strong>Total Needed for Retirement:</strong> ${formatCurrency(totalNeeded)}</p>
+        <p><strong>Estimated Social Security Income:</strong> ${formatCurrency(totalSS)}</p>
+        <p><strong>Other Income Source Total:</strong> ${formatCurrency(totalOther)}</p>
+        <p><strong>Estimated Shortfall:</strong> <span style="color:${shortfall > 0 ? 'red' : 'green'}">${formatCurrency(shortfall)}</span></p>
+      `;
+
+      // Line chart of savings
+      const labels = Array.from({ length: yearsToRetire + 1 }, (_, i) => ageNow + i);
+      const ctx = document.getElementById('chart').getContext('2d');
+      if (window.retireChart) window.retireChart.destroy();
+      window.retireChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Projected Savings Over Time',
+            data: savingsOverTime,
+            borderWidth: 2,
+            fill: false,
+            tension: 0.3,
+            borderColor: '#3498db'
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true } },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    // Export results and chart to PDF
+    function exportToPDF() {
+      const doc = new jsPDF();
+      const output = document.getElementById('output').innerText;
+
+      doc.text("Retirement Calculator Results", 10, 10);
+      const lines = output.split('\n');
+      lines.forEach((line, index) => {
+        doc.text(line, 10, 20 + index * 10);
+      });
+
+      const canvas = document.getElementById('chart');
+      const imgData = canvas.toDataURL("image/png");
+      doc.addImage(imgData, 'PNG', 10, 90, 180, 90);
+
+      doc.save("retirement-calculator-results.pdf");
+    }
+
+    // Attach actions to buttons
+    document.getElementById('calculateBtn').addEventListener('click', calculate);
+    document.getElementById('exportBtn').addEventListener('click', exportToPDF);
+  </script>
 </body>
 </html>
