@@ -108,8 +108,19 @@
   <h1>Retirement Calculator</h1>
   <p>This tool helps you estimate whether you're on track for retirement. Enter your current age, savings, annual contributions, and other financial inputs. The calculator will project your savings growth, adjust for inflation, estimate your income from Social Security and other sources, and determine whether you’ll have enough for retirement—or if there’s a shortfall.</p>
 
-  <div class="form-section">
-    <!-- Input fields and structure remain unchanged -->
+  <div class="form-section" id="form">
+    <div class="input-group"><label for="currentAge">Current Age:</label><input type="number" id="currentAge" value="30"></div>
+    <div class="input-group"><label for="retirementAge">Retirement Age:</label><input type="number" id="retirementAge" value="65"></div>
+    <div class="input-group"><label for="deathAge">Expected Death Age:</label><input type="number" id="deathAge" value="90"></div>
+    <div class="input-group"><label for="currentSavings">Current Savings ($):</label><input type="number" id="currentSavings" value="50000"></div>
+    <div class="input-group"><label for="annualContribution">Annual Contributions ($):</label><input type="number" id="annualContribution" value="5000"></div>
+    <div class="input-group"><label for="annualReturn">Expected Annual Return (%):</label><input type="number" id="annualReturn" value="9"></div>
+    <div class="input-group"><label for="inflationRate">Inflation Rate (%):</label><input type="number" id="inflationRate" value="3"></div>
+    <div class="input-group"><label for="monthlyTarget">Monthly Target in Retirement ($):</label><input type="number" id="monthlyTarget" value="8000"></div>
+    <div class="input-group"><label for="ssAge">Social Security Start Age:</label><input type="number" id="ssAge" value="62"></div>
+    <div class="input-group"><label for="ssAmount">Social Security Monthly Amount ($):</label><input type="number" id="ssAmount" value="2500"></div>
+    <div class="input-group"><label for="otherIncome">Other Annual Income ($):</label><input type="number" id="otherIncome" value="0"></div>
+    <div class="input-group"><label for="otherGrowth">Other Income Growth (%):</label><input type="number" id="otherGrowth" value="0"></div>
   </div>
 
   <div class="btn-row">
@@ -129,18 +140,21 @@
     }
 
     function calculate() {
-      const ageNow = parseInt(document.getElementById('currentAge').value);
-      const retireAge = parseInt(document.getElementById('retirementAge').value);
-      const deathAge = parseInt(document.getElementById('deathAge').value);
-      const savings = parseFloat(document.getElementById('currentSavings').value);
-      const annualContrib = parseFloat(document.getElementById('annualContribution').value);
-      const returnRate = parseFloat(document.getElementById('annualReturn').value) / 100;
-      const inflation = parseFloat(document.getElementById('inflationRate').value) / 100;
-      const targetMonthly = parseFloat(document.getElementById('monthlyTarget').value);
-      const ssAge = parseInt(document.getElementById('ssAge').value);
-      const ssMonthly = parseFloat(document.getElementById('ssAmount').value);
-      const otherIncome = parseFloat(document.getElementById('otherIncome').value);
-      const otherGrowth = parseFloat(document.getElementById('otherGrowth').value) / 100;
+      const get = id => document.getElementById(id)?.value;
+      if (!get('currentAge') || !get('retirementAge') || !get('deathAge')) return alert('Please fill out all required fields.');
+
+      const ageNow = parseInt(get('currentAge'));
+      const retireAge = parseInt(get('retirementAge'));
+      const deathAge = parseInt(get('deathAge'));
+      const savings = parseFloat(get('currentSavings'));
+      const annualContrib = parseFloat(get('annualContribution'));
+      const returnRate = parseFloat(get('annualReturn')) / 100;
+      const inflation = parseFloat(get('inflationRate')) / 100;
+      const targetMonthly = parseFloat(get('monthlyTarget'));
+      const ssAge = parseInt(get('ssAge'));
+      const ssMonthly = parseFloat(get('ssAmount'));
+      const otherIncome = parseFloat(get('otherIncome'));
+      const otherGrowth = parseFloat(get('otherGrowth')) / 100;
 
       const yearsToRetire = retireAge - ageNow;
       const yearsInRetirement = deathAge - retireAge;
@@ -154,20 +168,17 @@
 
       const futureMonthly = targetMonthly * Math.pow(1 + inflation, yearsToRetire);
       const totalNeeded = futureMonthly * 12 * yearsInRetirement;
-
       const ssYears = Math.max(0, deathAge - ssAge);
-      const otherYears = yearsInRetirement;
       const totalSS = ssMonthly * 12 * ssYears;
 
       let totalOther = 0;
       let income = otherIncome;
-      for (let i = 0; i < otherYears; i++) {
+      for (let i = 0; i < yearsInRetirement; i++) {
         totalOther += income;
         income *= (1 + otherGrowth);
       }
 
       const shortfall = totalNeeded - fv - totalSS - totalOther;
-
       const shortfallClass = shortfall > 0 ? 'negative' : 'positive';
 
       document.getElementById('output').innerHTML = `
@@ -197,9 +208,7 @@
         options: {
           responsive: true,
           plugins: { legend: { display: true } },
-          scales: {
-            y: { beginAtZero: true }
-          }
+          scales: { y: { beginAtZero: true } }
         }
       });
     }
@@ -207,20 +216,18 @@
     function exportToPDF() {
       const doc = new jsPDF();
       const output = document.getElementById('output').innerText;
-
       doc.text("Retirement Calculator Results", 10, 10);
-      output.split('
-').forEach((line, index) => {
+      output.split('\n').forEach((line, index) => {
         doc.text(line, 10, 20 + index * 10);
       });
-
       const canvas = document.getElementById('chart');
       const imgData = canvas.toDataURL("image/png");
       doc.addImage(imgData, 'PNG', 10, 90, 180, 90);
-
       doc.save("retirement-calculator-results.pdf");
     }
 
     document.getElementById('calculateBtn').addEventListener('click', calculate);
     document.getElementById('exportBtn').addEventListener('click', exportToPDF);
   </script>
+</body>
+</html>
